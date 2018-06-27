@@ -41,61 +41,82 @@ contract Ownable {
     }
 
 }
-
-// ----------------------------------------------------------------------------
-// ERC20 Token, with the addition of symbol, name and decimals and assisted
-// token transfers
-// ----------------------------------------------------------------------------
+/**
+ * @title WineStore
+ * @dev This contract allows to store, retrive, verify and revoke wines.
+ */
 contract WineStore is Ownable {
+
     using SafeMath for uint256;
-    string public symbol;
-    string public  name;
+
+    string public symbol = "WINE";
+    string public  name = "Wine Store";
+    uint public numberOfWines = 0;
 
     struct WineUnit {
         string name;
         uint256 alcoholPct;
         string cellarName;
         string country;
-        uint8 identifier;
+        uint identifier;
         uint256 createdTime;
     }
 
-    event WineAdd(bytes32);
+    event WineAdded(bytes32 wine);
+    event WineRevoked(bytes32 wineHash);
 
-    mapping(bytes32 => WineUnit) wineStoreDB;
-    mapping(address => uint) balances;
-    mapping(address => mapping(address => uint)) allowed;
+    mapping (bytes32 => WineUnit) wineStoreDB;
 
-    // ------------------------------------------------------------------------
-    // Constructor
-    // ------------------------------------------------------------------------
-    constructor() public {
-        symbol = "WINE";
-        name = "Wine Store";
-    }
-
-    function addWine(string vName, uint256 vAlcoholPct, string vCellarName, string vCountry, uint8 vID) external onlyOwner returns (bytes32) {
+    /**
+     * @dev Add new wine.
+     */
+    function addWine(string vName, uint256 vAlcoholPct, string vCellarName, string vCountry, uint vID, bytes32 wineHash) 
+    payable external onlyOwner returns (bool) {
 
         uint256 vCreatedTime = block.timestamp;
-        WineUnit memory unit = WineUnit(vName,vAlcoholPct,vCellarName,vCountry,vID,vCreatedTime);
-        bytes32 hash = sha256(abi.encodePacked(vName,vAlcoholPct,vCellarName,vCountry,vID,vCreatedTime));
-        wineStoreDB[hash] = unit;
-        emit WineAdd(hash);
-        return hash;
+        //bytes32 docHash = sha256(abi.encodePacked(vName,vAlcoholPct,vCellarName,vCountry,vID,vCreatedTime));
+        
+        wineStoreDB[wineHash].name = vName;
+        wineStoreDB[wineHash].alcoholPct = vAlcoholPct;
+        wineStoreDB[wineHash].cellarName = vCellarName;
+        wineStoreDB[wineHash].country = vCountry;
+        wineStoreDB[wineHash].identifier = vID;
+        wineStoreDB[wineHash].createdTime = vCreatedTime;
+
+        numberOfWines = numberOfWines.add(1 ether);
+        emit WineAdded(wineHash);
+        return true;
     }
 
-    function verifyWine(bytes32 vHash) external view returns (string, uint256, string, string, uint8, uint256) {
+    /**
+     * @dev Verifies if wine is authentic by accepting its hash and returns wine details.
+     */
+    function verifyWine(bytes32 vHash) external view returns (string, uint256, string, string, uint, uint256) {
         WineUnit storage unit = wineStoreDB[vHash];
         return (unit.name, unit.alcoholPct, unit.cellarName, unit.country, unit.identifier, unit.createdTime);
     }
 
+    /**
+     * @dev Verifies if the wine is authentic and returns true/false.
+     */
     function isValidWine(bytes32 vHash) external view returns (bool){
         WineUnit storage unit = wineStoreDB[vHash];
-        if(unit.identifier<0){
+        if(unit.identifier<=uint(0)){
             return false;
         }else{
             return true;
         }
+    }
+
+    /**
+     * @dev Removes wine from the system.
+     */
+    function revokeWine(bytes32 hash, uint vID) external onlyOwner returns (bool) {
+        require(wineStoreDB[hash].identifier == vID);
+        wineStoreDB[hash].identifier = 0;
+        numberOfWines = numberOfWines.sub(1 ether);
+        emit WineRevoked(hash);
+        return true;
     }
 
     // ------------------------------------------------------------------------
@@ -104,4 +125,4 @@ contract WineStore is Ownable {
     function () public payable {
         revert();
     }
-}    
+} 
